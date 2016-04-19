@@ -48,16 +48,15 @@ func line(x0, y0, x1, y1 int, img *image.NRGBA, color color.NRGBA) {
 			img.SetNRGBA(x, y0, color)
 		}
 	} else {
-    // sloped line
-
-
+		// sloped line
 	}
 
 }
 
 func main() {
 	white := color.NRGBA{255, 255, 255, 255}
-	img := imaging.New(100, 100, color.NRGBA{0, 0, 0, 0})
+	black := color.NRGBA{0, 0, 0, 255}
+	img := imaging.New(100, 100, black)
 
 	line(13, 20, 13, 20, img, white)
 	line(13, 20, 13, 40, img, white)
@@ -65,7 +64,7 @@ func main() {
 	line(13, 20, 80, 40, img, white)
 
 	img = imaging.FlipV(img)
-	err := imaging.Save(img, "test.jpeg")
+	err := imaging.Save(img, "output.png")
 	if err != nil {
 		fmt.Printf("error: %s\n", err)
 	}
