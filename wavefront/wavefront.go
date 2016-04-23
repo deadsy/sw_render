@@ -1,3 +1,5 @@
+//-----------------------------------------------------------------------------
+
 package wavefront
 
 import (
@@ -8,13 +10,7 @@ import (
 	"strings"
 )
 
-type file_error struct {
-	msg string
-}
-
-func (e *file_error) Error() string {
-	return e.msg
-}
+//-----------------------------------------------------------------------------
 
 // geometric vertex
 type V_elem struct {
@@ -22,7 +18,16 @@ type V_elem struct {
 	w float32
 }
 
-// texture coordinate
+// offset and scale
+func (v *V_elem) Scale(ofs, scale *[3]float32) *[3]int {
+	return &[3]int{
+		int((v.x[0] + ofs[0]) * scale[0]),
+		int((v.x[1] + ofs[1]) * scale[1]),
+		int((v.x[2] + ofs[2]) * scale[2]),
+	}
+}
+
+// texture vertex
 type VT_elem struct {
 	x [2]float32
 	w float32
@@ -35,7 +40,7 @@ type VN_elem struct {
 
 type F_elem struct {
 	v  int // index for geometric vertex
-	vt int // index to texture coordinate
+	vt int // index to texture vertex
 	vn int // index for vertex normal
 }
 
@@ -46,6 +51,8 @@ type Object struct {
 	vn_list []*VN_elem
 	f_list  []*[3]F_elem
 }
+
+//-----------------------------------------------------------------------------
 
 func (o *Object) Add_V(v *V_elem) {
 	o.v_list = append(o.v_list, v)
@@ -63,26 +70,74 @@ func (o *Object) Add_F(f *[3]F_elem) {
 	o.f_list = append(o.f_list, f)
 }
 
-// validate the f element indices
-func (o *Object) Check_F(f *F_elem) error {
-	if f.v > len(o.v_list) {
-		return &file_error{"v index out of range"}
-	}
-	if f.vt > len(o.vt_list) {
-		return &file_error{"vt index out of range"}
-	}
-	if f.vn > len(o.vn_list) {
-		return &file_error{"vn index out of range"}
-	}
-	return nil
+func (o *Object) Len_V() int {
+	return len(o.v_list)
 }
 
-func (o *Object) Display() {
-	fmt.Printf("geometric vertices %d\n", len(o.v_list))
-	fmt.Printf("texture coordinates %d\n", len(o.vt_list))
-	fmt.Printf("vertex normals %d\n", len(o.vn_list))
-	fmt.Printf("faces %d\n", len(o.f_list))
+func (o *Object) Len_VT() int {
+	return len(o.vt_list)
 }
+
+func (o *Object) Len_VN() int {
+	return len(o.vn_list)
+}
+
+func (o *Object) Len_F() int {
+	return len(o.f_list)
+}
+
+// return the j-th vertex from the i-th face
+func (o *Object) Get_V(i, j int) *V_elem {
+	return o.v_list[o.f_list[i][j].v-1]
+}
+
+func (o *Object) String() string {
+	var s []string
+	s = append(s, fmt.Sprintf("geometric vertices %d", len(o.v_list)))
+	s = append(s, fmt.Sprintf("texture vertices %d", len(o.vt_list)))
+	s = append(s, fmt.Sprintf("vertex normals %d", len(o.vn_list)))
+	s = append(s, fmt.Sprintf("faces %d", len(o.f_list)))
+	s = append(s, fmt.Sprintf("bounds-x %f %f", o.Min_V(0), o.Max_V(0)))
+	s = append(s, fmt.Sprintf("bounds-y %f %f", o.Min_V(1), o.Max_V(1)))
+	s = append(s, fmt.Sprintf("bounds-z %f %f", o.Min_V(2), o.Max_V(2)))
+	return strings.Join(s, "\n")
+}
+
+func (o *Object) Range_V(j int) float32 {
+	return o.Max_V(j) - o.Min_V(j)
+}
+
+// return the value of the v element with the largest j-th index value
+func (o *Object) Max_V(j int) float32 {
+	x := float32(0)
+	if len(o.v_list) != 0 {
+		// initial value
+		x = o.v_list[0].x[j]
+		for i := 0; i < len(o.v_list); i++ {
+			if o.v_list[i].x[j] > x {
+				x = o.v_list[i].x[j]
+			}
+		}
+	}
+	return x
+}
+
+// return the value of the v element with the smallest j-th index value
+func (o *Object) Min_V(j int) float32 {
+	x := float32(0)
+	if len(o.v_list) != 0 {
+		// initial value
+		x = o.v_list[0].x[j]
+		for i := 0; i < len(o.v_list); i++ {
+			if o.v_list[i].x[j] < x {
+				x = o.v_list[i].x[j]
+			}
+		}
+	}
+	return x
+}
+
+//-----------------------------------------------------------------------------
 
 func Read(filename string) (*Object, error) {
 
@@ -97,7 +152,7 @@ func Read(filename string) (*Object, error) {
 	scanner := bufio.NewScanner(file)
 
 	fail := func(msg string) error {
-		return fmt.Errorf(msg+" at %s:%d: %s", filename, line_number, line)
+		return fmt.Errorf(msg+" at line %d", line_number)
 	}
 
 	var object Object
@@ -121,6 +176,30 @@ func Read(filename string) (*Object, error) {
 
 		switch fields[0] {
 
+		case "o":
+			// object name
+			// TODO
+
+		case "g":
+			// group name
+			// TODO
+
+		case "s":
+			// smoothing object
+			// TODO
+
+		case "mtllib":
+			// material library
+			// TODO
+
+		case "usemtl":
+			// use material
+			// TODO
+
+		case "l":
+			// line
+			// TODO
+
 		case "v":
 			// geometric vertex
 			if n_fields < 3 {
@@ -139,11 +218,11 @@ func Read(filename string) (*Object, error) {
 				x[i] = float32(f)
 			}
 			v := V_elem{w: x[3]}
-			copy(v.x[:], x[0:2])
+			copy(v.x[:], x[0:3])
 			object.Add_V(&v)
 
 		case "vt":
-			// texture coordinate
+			// texture vertex
 			if n_fields < 2 {
 				return nil, fail("vt: not enough fields")
 			}
@@ -160,7 +239,7 @@ func Read(filename string) (*Object, error) {
 				x[i] = float32(f)
 			}
 			vt := VT_elem{w: x[2]}
-			copy(vt.x[:], x[0:1])
+			copy(vt.x[:], x[0:2])
 			object.Add_VT(&vt)
 
 		case "vn":
@@ -178,12 +257,6 @@ func Read(filename string) (*Object, error) {
 			}
 			object.Add_VN(&vn)
 
-		case "g":
-			// group name
-
-		case "s":
-			// smooth shading
-
 		case "f":
 			// face
 			if n_fields != 3 {
@@ -198,13 +271,19 @@ func Read(filename string) (*Object, error) {
 					if err != nil {
 						return nil, fail("bad face geometric vertex index")
 					}
+					if x > object.Len_V() {
+						return nil, fail("v index out of range")
+					}
 					f[i].v = x
-					// index to texture coordinate (could be empty)
+					// index to texture vertex (could be empty)
 					if len(indices) >= 2 {
 						if len(indices[1]) > 0 {
 							x, err := strconv.Atoi(indices[1])
 							if err != nil {
-								return nil, fail("bad face texture coordinate")
+								return nil, fail("bad face texture vertex")
+							}
+							if x > object.Len_VT() {
+								return nil, fail("vt index out of range")
 							}
 							f[i].vt = x
 						}
@@ -214,15 +293,14 @@ func Read(filename string) (*Object, error) {
 							if err != nil {
 								return nil, fail("bad face vertex normal")
 							}
+							if x > object.Len_VN() {
+								return nil, fail("vn index out of range")
+							}
 							f[i].vn = x
 						}
 					}
 				} else {
 					return nil, fail("bad face indices")
-				}
-				err := object.Check_F(&f[i])
-				if err != nil {
-					return nil, fail(err.Error())
 				}
 			}
 			object.Add_F(&f)
@@ -238,3 +316,5 @@ func Read(filename string) (*Object, error) {
 
 	return &object, nil
 }
+
+//-----------------------------------------------------------------------------

@@ -10,6 +10,8 @@ import (
 	"github.com/disintegration/imaging"
 )
 
+const image_size = 1000
+
 type V2 [2]int
 
 func Equal(a, b V2) bool {
@@ -130,27 +132,60 @@ func main() {
 
 	obj, err := wavefront.Read(objfile)
 	if err != nil {
-		fmt.Printf("unable to load %s, %s\n", objfile, err)
+		fmt.Printf("%s: %s\n", objfile, err)
 		os.Exit(1)
 	}
 
-	obj.Display()
+	fmt.Printf("%s\n", obj)
 
-	os.Exit(0)
+	ofs := [3]float32{-obj.Min_V(0), -obj.Min_V(1), -obj.Min_V(2)}
+	fmt.Printf("ofs: %+v\n", ofs)
+
+	x_range := obj.Range_V(0)
+	y_range := obj.Range_V(1)
+	z_range := obj.Range_V(2)
+
+	fmt.Printf("range: %f %f %f\n", x_range, y_range, z_range)
+
+	// scale by x
+	s := image_size / x_range
+	scale := [3]float32{s, s, s}
+	fmt.Printf("%+v\n", scale)
+
+	x_size := int(x_range*s) + 1
+	y_size := int(y_range*s) + 1
+	z_size := int(z_range*s) + 1
+
+	fmt.Printf("%d %d %d\n", x_size, y_size, z_size)
 
 	white := color.NRGBA{255, 255, 255, 255}
 	black := color.NRGBA{0, 0, 0, 255}
-	img := imaging.New(100, 100, black)
 
-	line(V2{13, 20}, V2{13, 20}, img, white)
-	line(V2{13, 20}, V2{13, 40}, img, white)
-	line(V2{13, 20}, V2{80, 20}, img, white)
-	line(V2{13, 20}, V2{80, 40}, img, white)
-	line(V2{13, 20}, V2{40, 80}, img, white)
-	line(V2{0, 0}, V2{99, 1}, img, white)
-	line(V2{0, 0}, V2{99, 5}, img, white)
-	line(V2{0, 0}, V2{99, 99}, img, white)
-	line(V2{0, 0}, V2{1, 99}, img, white)
+	// plotting x and y values, dropping z
+	img := imaging.New(x_size, y_size, black)
+
+	// iterate over the object faces
+	for i := 0; i < obj.Len_F(); i++ {
+
+		// get the vertices from the face
+		v0 := obj.Get_V(i, 0)
+		v1 := obj.Get_V(i, 1)
+		v2 := obj.Get_V(i, 2)
+
+		p0 := v0.Scale(&ofs, &scale)
+		p1 := v1.Scale(&ofs, &scale)
+		p2 := v2.Scale(&ofs, &scale)
+
+		//fmt.Printf("%+v %+v %+v\n", p0, p1, p2)
+
+		// p0 to p1
+		line(V2{p0[0], p0[1]}, V2{p1[0], p1[1]}, img, white)
+		// p1 to p2
+		line(V2{p1[0], p1[1]}, V2{p2[0], p2[1]}, img, white)
+		// p2 to p0
+		line(V2{p2[0], p2[1]}, V2{p0[0], p0[1]}, img, white)
+
+	}
 
 	img = imaging.FlipV(img)
 	err = imaging.Save(img, imgfile)
