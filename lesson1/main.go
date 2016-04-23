@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/disintegration/imaging"
 	"image"
 	"image/color"
+	"os"
+
+	"github.com/deadsy/sw_render/wavefront"
+	"github.com/disintegration/imaging"
 )
 
 type V2 [2]int
@@ -120,6 +123,21 @@ func line(a, b V2, img *image.NRGBA, color color.NRGBA) {
 }
 
 func main() {
+
+	//objfile := "../obj/gopher.obj"
+	objfile := "../obj/african_head.obj"
+	imgfile := "output.png"
+
+	obj, err := wavefront.Read(objfile)
+	if err != nil {
+		fmt.Printf("unable to load %s, %s\n", objfile, err)
+		os.Exit(1)
+	}
+
+	obj.Display()
+
+	os.Exit(0)
+
 	white := color.NRGBA{255, 255, 255, 255}
 	black := color.NRGBA{0, 0, 0, 255}
 	img := imaging.New(100, 100, black)
@@ -135,8 +153,11 @@ func main() {
 	line(V2{0, 0}, V2{1, 99}, img, white)
 
 	img = imaging.FlipV(img)
-	err := imaging.Save(img, "output.png")
+	err = imaging.Save(img, imgfile)
 	if err != nil {
-		fmt.Printf("error: %s\n", err)
+		fmt.Printf("unable to save %s, %s\n", imgfile, err)
+		os.Exit(1)
 	}
+
+	os.Exit(0)
 }
