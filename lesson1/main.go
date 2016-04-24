@@ -6,55 +6,25 @@ import (
 	"image/color"
 	"os"
 
+	"github.com/deadsy/sw_render/vec"
 	"github.com/deadsy/sw_render/wavefront"
 	"github.com/disintegration/imaging"
 )
 
-const image_size = 1000
+const pixels_x = 1000
+const pixels_ofs = 5
 
 type V2 [2]int
 
-func Equal(a, b V2) bool {
+func (a V2) Equal(b V2) bool {
 	return (a[0] == b[0]) && (a[1] == b[1])
 }
 
-func Equal_X(a, b V2) bool {
-	return a[0] == b[0]
-}
-
-func Equal_Y(a, b V2) bool {
-	return a[1] == b[1]
-}
-
-func Min_Y(a, b V2) V2 {
-	if a[1] < b[1] {
-		return a
-	} else {
-		return b
-	}
-}
-
-func Max_Y(a, b V2) V2 {
-	if a[1] < b[1] {
-		return b
-	} else {
-		return a
-	}
-}
-
-func Min_X(a, b V2) V2 {
-	if a[0] < b[0] {
-		return a
-	} else {
-		return b
-	}
-}
-
-func Max_X(a, b V2) V2 {
-	if a[0] < b[0] {
-		return b
-	} else {
-		return a
+// Return a - b
+func (a V2) Sub(b V2) V2 {
+	return V2{
+		a[0] - b[0],
+		a[1] - b[1],
 	}
 }
 
@@ -65,69 +35,130 @@ func abs(a int) int {
 	return -a
 }
 
-func line(a, b V2, img *image.NRGBA, color color.NRGBA) {
+type plot_func func(int, int)
 
-	if Equal(a, b) {
-		// point
-		img.SetNRGBA(a[0], a[1], color)
-	} else if Equal_X(a, b) {
-		// vertical line
-		p0 := Min_Y(a, b)
-		p1 := Max_Y(a, b)
-		for y := p0[1]; y <= p1[1]; y++ {
-			img.SetNRGBA(a[0], y, color)
+// bresenham's line algorithm
+// dx > 0, dy >= 0, dx >= dy
+func bresenham_line(dx, dy int, plot plot_func) {
+	err_y := 2 * dy
+	err_x := 2 * dx
+	y := 0
+	err := 0
+	for x := 0; x <= dx; x++ {
+		plot(x, y)
+		err += err_y
+		if err >= dx {
+			y += 1
+			err -= err_x
 		}
-	} else if Equal_Y(a, b) {
-		// horizontal line
-		p0 := Min_X(a, b)
-		p1 := Max_X(a, b)
-		for x := p0[0]; x <= p1[0]; x++ {
-			img.SetNRGBA(x, a[1], color)
-		}
-	} else {
-		// sloped line
-		if abs(a[0]-b[0]) > abs(a[1]-b[1]) {
-			// x is the long axis
-			p0 := Min_X(a, b)
-			p1 := Max_X(a, b)
-			dx := p1[0] - p0[0]
-			dy := p1[1] - p0[1]
-			y := p0[1]
-			err := 0
-			d_err := 2 * dy
-			for x := p0[0]; x <= p1[0]; x++ {
-				img.SetNRGBA(x, y, color)
-				err += d_err
-				if err >= dx {
-					y += 1
-					err -= 2 * dx
-				}
+	}
+}
+
+// major x-axis, quadrant 0
+func plot_x0(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+	return func(x, y int) {
+		img.SetNRGBA(ofs[0]+x, ofs[1]+y, color)
+	}
+}
+
+// major x-axis, quadrant 1
+func plot_x1(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+	return func(x, y int) {
+		img.SetNRGBA(ofs[0]-x, ofs[1]+y, color)
+	}
+}
+
+// major x-axis, quadrant 2
+func plot_x2(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+	return func(x, y int) {
+		img.SetNRGBA(ofs[0]-x, ofs[1]-y, color)
+	}
+}
+
+// major x-axis, quadrant 3
+func plot_x3(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+	return func(x, y int) {
+		img.SetNRGBA(ofs[0]+x, ofs[1]-y, color)
+	}
+}
+
+// major y-axis, quadrant 0
+func plot_y0(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+	return func(y, x int) {
+		img.SetNRGBA(ofs[0]+x, ofs[1]+y, color)
+	}
+}
+
+// major y-axis, quadrant 1
+func plot_y1(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+	return func(y, x int) {
+		img.SetNRGBA(ofs[0]-x, ofs[1]+y, color)
+	}
+}
+
+// major y-axis, quadrant 2
+func plot_y2(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+	return func(y, x int) {
+		img.SetNRGBA(ofs[0]-x, ofs[1]-y, color)
+	}
+}
+
+// major y-axis, quadrant 3
+func plot_y3(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+	return func(y, x int) {
+		img.SetNRGBA(ofs[0]+x, ofs[1]-y, color)
+	}
+}
+
+func line(a, b V2, img *image.NRGBA, color color.NRGBA) {
+	if a.Equal(b) {
+		return
+	}
+	x := b.Sub(a)
+	if abs(x[0]) >= abs(x[1]) {
+		// major x-axis
+		if x[0] >= 0 {
+			if x[1] >= 0 {
+				bresenham_line(x[0], x[1], plot_x0(a, img, color))
+			} else {
+				bresenham_line(x[0], -x[1], plot_x3(a, img, color))
 			}
 		} else {
-			// y is the long axis
-			p0 := Min_Y(a, b)
-			p1 := Max_Y(a, b)
-			dx := p1[0] - p0[0]
-			dy := p1[1] - p0[1]
-			x := p0[0]
-			err := 0
-			d_err := 2 * dx
-			for y := p0[1]; y <= p1[1]; y++ {
-				img.SetNRGBA(x, y, color)
-				err += d_err
-				if err >= dy {
-					x += 1
-					err -= 2 * dy
-				}
+			if x[1] >= 0 {
+				bresenham_line(-x[0], x[1], plot_x1(a, img, color))
+			} else {
+				bresenham_line(-x[0], -x[1], plot_x2(a, img, color))
+			}
+		}
+	} else {
+		// major y-axis
+		if x[0] >= 0 {
+			if x[1] >= 0 {
+				bresenham_line(x[1], x[0], plot_y0(a, img, color))
+			} else {
+				bresenham_line(-x[1], x[0], plot_y3(a, img, color))
+			}
+		} else {
+			if x[1] >= 0 {
+				bresenham_line(x[1], -x[0], plot_y1(a, img, color))
+			} else {
+				bresenham_line(-x[1], -x[0], plot_y2(a, img, color))
 			}
 		}
 	}
+}
+
+// object to image mapping
+func Obj2Img(v, ofs vec.V3, scale float32) V2 {
+	p := v.Sum(ofs).Scale(scale)
+	return V2{int(p[0]), int(p[1])}
 }
 
 func main() {
 
 	//objfile := "../obj/gopher.obj"
 	objfile := "../obj/african_head.obj"
+	//objfile := "../obj/test_triangle.obj"
 	imgfile := "output.png"
 
 	obj, err := wavefront.Read(objfile)
@@ -138,53 +169,43 @@ func main() {
 
 	fmt.Printf("%s\n", obj)
 
-	ofs := [3]float32{-obj.Min_V(0), -obj.Min_V(1), -obj.Min_V(2)}
-	fmt.Printf("ofs: %+v\n", ofs)
+	obj_ofs := obj.Offset()
+	fmt.Printf("obj_ofs: %+v\n", obj_ofs)
 
-	x_range := obj.Range_V(0)
-	y_range := obj.Range_V(1)
-	z_range := obj.Range_V(2)
+	obj_range := obj.Range()
+	fmt.Printf("obj_range: %+v\n", obj_range)
 
-	fmt.Printf("range: %f %f %f\n", x_range, y_range, z_range)
+	// we want the image to be pixels_x wide on the x-axis
+	// work out the scaling factor
+	scale := (pixels_x - pixels_ofs) / obj_range[0]
 
-	// scale by x
-	s := image_size / x_range
-	scale := [3]float32{s, s, s}
-	fmt.Printf("%+v\n", scale)
-
-	x_size := int(x_range*s) + 1
-	y_size := int(y_range*s) + 1
-	z_size := int(z_range*s) + 1
-
-	fmt.Printf("%d %d %d\n", x_size, y_size, z_size)
+	// work out the image size
+	img_size := obj_range.Scale(scale)
+	img_size = img_size.Sum(vec.V3{pixels_ofs, pixels_ofs, pixels_ofs})
+	fmt.Printf("img_size: %+v\n", img_size)
 
 	white := color.NRGBA{255, 255, 255, 255}
 	black := color.NRGBA{0, 0, 0, 255}
-
-	// plotting x and y values, dropping z
-	img := imaging.New(x_size, y_size, black)
+	img := imaging.New(int(img_size[0]), int(img_size[1]), black)
 
 	// iterate over the object faces
 	for i := 0; i < obj.Len_F(); i++ {
 
 		// get the vertices from the face
-		v0 := obj.Get_V(i, 0)
-		v1 := obj.Get_V(i, 1)
-		v2 := obj.Get_V(i, 2)
+		v0 := obj.Get_V(i, 0).ToV3()
+		v1 := obj.Get_V(i, 1).ToV3()
+		v2 := obj.Get_V(i, 2).ToV3()
 
-		p0 := v0.Scale(&ofs, &scale)
-		p1 := v1.Scale(&ofs, &scale)
-		p2 := v2.Scale(&ofs, &scale)
-
-		//fmt.Printf("%+v %+v %+v\n", p0, p1, p2)
+		p0 := Obj2Img(v0, obj_ofs, scale)
+		p1 := Obj2Img(v1, obj_ofs, scale)
+		p2 := Obj2Img(v2, obj_ofs, scale)
 
 		// p0 to p1
-		line(V2{p0[0], p0[1]}, V2{p1[0], p1[1]}, img, white)
+		line(p0, p1, img, white)
 		// p1 to p2
-		line(V2{p1[0], p1[1]}, V2{p2[0], p2[1]}, img, white)
+		line(p1, p2, img, white)
 		// p2 to p0
-		line(V2{p2[0], p2[1]}, V2{p0[0], p0[1]}, img, white)
-
+		line(p2, p0, img, white)
 	}
 
 	img = imaging.FlipV(img)
