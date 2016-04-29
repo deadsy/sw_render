@@ -6,25 +6,25 @@ import (
 )
 
 func Test_Ops(t *testing.T) {
-	a := V3{1, 2, 3}
-	b := V3{4, 5, 6}
+	a := V3f{1, 2, 3}
+	b := V3f{4, 5, 6}
 
-	good_sum := V3{5, 7, 9}
+	good_sum := V3f{5, 7, 9}
 	if a.Sum(b) != good_sum {
 		t.Error("FAIL")
 	}
 
-	good_sub := V3{3, 3, 3}
+	good_sub := V3f{3, 3, 3}
 	if b.Sub(a) != good_sub {
 		t.Error("FAIL")
 	}
 
-	good_cross := V3{-3, 6, -3}
+	good_cross := V3f{-3, 6, -3}
 	if a.Cross(b) != good_cross {
 		t.Error("FAIL")
 	}
 
-	good_scale := V3{2, 4, 6}
+	good_scale := V3f{2, 4, 6}
 	if a.Scale(2) != good_scale {
 		t.Error("FAIL")
 	}
@@ -40,7 +40,7 @@ func Test_Ops(t *testing.T) {
 	}
 
 	l := float32(math.Sqrt(1 + 4 + 9))
-	good_normalize := V3{a[0] / l, a[1] / l, a[2] / l}
+	good_normalize := V3f{a[0] / l, a[1] / l, a[2] / l}
 	if a.Normalize() != good_normalize {
 		t.Error("FAIL")
 	}

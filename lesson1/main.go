@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"os"
 
+	"github.com/deadsy/sw_render/utils"
 	"github.com/deadsy/sw_render/vec"
 	"github.com/deadsy/sw_render/wavefront"
 	"github.com/disintegration/imaging"
@@ -13,27 +14,6 @@ import (
 
 const pixels_x = 1000
 const pixels_ofs = 5
-
-type V2 [2]int
-
-func (a V2) Equal(b V2) bool {
-	return (a[0] == b[0]) && (a[1] == b[1])
-}
-
-// Return a - b
-func (a V2) Sub(b V2) V2 {
-	return V2{
-		a[0] - b[0],
-		a[1] - b[1],
-	}
-}
-
-func abs(a int) int {
-	if a > 0 {
-		return a
-	}
-	return -a
-}
 
 type plot_func func(int, int)
 
@@ -55,67 +35,67 @@ func bresenham_line(dx, dy int, plot plot_func) {
 }
 
 // major x-axis, quadrant 0
-func plot_x0(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+func plot_x0(ofs vec.V2i, img *image.NRGBA, color color.NRGBA) plot_func {
 	return func(x, y int) {
 		img.SetNRGBA(ofs[0]+x, ofs[1]+y, color)
 	}
 }
 
 // major x-axis, quadrant 1
-func plot_x1(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+func plot_x1(ofs vec.V2i, img *image.NRGBA, color color.NRGBA) plot_func {
 	return func(x, y int) {
 		img.SetNRGBA(ofs[0]-x, ofs[1]+y, color)
 	}
 }
 
 // major x-axis, quadrant 2
-func plot_x2(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+func plot_x2(ofs vec.V2i, img *image.NRGBA, color color.NRGBA) plot_func {
 	return func(x, y int) {
 		img.SetNRGBA(ofs[0]-x, ofs[1]-y, color)
 	}
 }
 
 // major x-axis, quadrant 3
-func plot_x3(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+func plot_x3(ofs vec.V2i, img *image.NRGBA, color color.NRGBA) plot_func {
 	return func(x, y int) {
 		img.SetNRGBA(ofs[0]+x, ofs[1]-y, color)
 	}
 }
 
 // major y-axis, quadrant 0
-func plot_y0(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+func plot_y0(ofs vec.V2i, img *image.NRGBA, color color.NRGBA) plot_func {
 	return func(y, x int) {
 		img.SetNRGBA(ofs[0]+x, ofs[1]+y, color)
 	}
 }
 
 // major y-axis, quadrant 1
-func plot_y1(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+func plot_y1(ofs vec.V2i, img *image.NRGBA, color color.NRGBA) plot_func {
 	return func(y, x int) {
 		img.SetNRGBA(ofs[0]-x, ofs[1]+y, color)
 	}
 }
 
 // major y-axis, quadrant 2
-func plot_y2(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+func plot_y2(ofs vec.V2i, img *image.NRGBA, color color.NRGBA) plot_func {
 	return func(y, x int) {
 		img.SetNRGBA(ofs[0]-x, ofs[1]-y, color)
 	}
 }
 
 // major y-axis, quadrant 3
-func plot_y3(ofs V2, img *image.NRGBA, color color.NRGBA) plot_func {
+func plot_y3(ofs vec.V2i, img *image.NRGBA, color color.NRGBA) plot_func {
 	return func(y, x int) {
 		img.SetNRGBA(ofs[0]+x, ofs[1]-y, color)
 	}
 }
 
-func line(a, b V2, img *image.NRGBA, color color.NRGBA) {
+func line(a, b vec.V2i, img *image.NRGBA, color color.NRGBA) {
 	if a.Equal(b) {
 		return
 	}
 	x := b.Sub(a)
-	if abs(x[0]) >= abs(x[1]) {
+	if utils.Abs(x[0]) >= utils.Abs(x[1]) {
 		// major x-axis
 		if x[0] >= 0 {
 			if x[1] >= 0 {
@@ -149,9 +129,9 @@ func line(a, b V2, img *image.NRGBA, color color.NRGBA) {
 }
 
 // object to image mapping
-func Obj2Img(v, ofs vec.V3, scale float32) V2 {
+func Obj2Img(v, ofs vec.V3f, scale float32) vec.V2i {
 	p := v.Sum(ofs).Scale(scale)
-	return V2{int(p[0]), int(p[1])}
+	return vec.V2i{int(p[0]), int(p[1])}
 }
 
 func main() {
@@ -181,7 +161,7 @@ func main() {
 
 	// work out the image size
 	img_size := obj_range.Scale(scale)
-	img_size = img_size.Sum(vec.V3{pixels_ofs, pixels_ofs, pixels_ofs})
+	img_size = img_size.Sum(vec.V3f{pixels_ofs, pixels_ofs, pixels_ofs})
 	fmt.Printf("img_size: %+v\n", img_size)
 
 	white := color.NRGBA{255, 255, 255, 255}

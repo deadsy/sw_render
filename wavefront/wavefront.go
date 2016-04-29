@@ -58,8 +58,8 @@ func (v *V_elem) Scale(ofs, scale *[3]float32) *[3]int {
 }
 
 // convert a vertex to a V3
-func (v *V_elem) ToV3() vec.V3 {
-	return vec.V3{v.x[0], v.x[1], v.x[2]}
+func (v *V_elem) ToV3() vec.V3f {
+	return vec.V3f{v.x[0], v.x[1], v.x[2]}
 }
 
 //-----------------------------------------------------------------------------
@@ -114,12 +114,12 @@ func (o *Object) String() string {
 	return strings.Join(s, "\n")
 }
 
-func (o *Object) Offset() vec.V3 {
-	return vec.V3{-o.Min_V(0), -o.Min_V(1), -o.Min_V(2)}
+func (o *Object) Offset() vec.V3f {
+	return vec.V3f{-o.Min_V(0), -o.Min_V(1), -o.Min_V(2)}
 }
 
-func (o *Object) Range() vec.V3 {
-	return vec.V3{o.Range_V(0), o.Range_V(1), o.Range_V(2)}
+func (o *Object) Range() vec.V3f {
+	return vec.V3f{o.Range_V(0), o.Range_V(1), o.Range_V(2)}
 }
 
 func (o *Object) Range_V(j int) float32 {
