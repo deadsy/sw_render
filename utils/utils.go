@@ -16,3 +16,13 @@ func Abs(x int) int {
 	}
 	return x
 }
+
+func Round(x float32) int {
+	if x < -0.5 {
+		return int(x - 0.5)
+	}
+	if x > 0.5 {
+		return int(x + 0.5)
+	}
+	return 0
+}

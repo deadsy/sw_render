@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math/rand"
 	"os"
 
 	"github.com/deadsy/sw_render/utils"
@@ -19,10 +20,17 @@ func collinear(a, b, c vec.V2i) bool {
 type line_func func(int, int, int)
 
 // filled in triangle - horizontal raster between 2 bresenham lines
-// dy > 0, dx0 <= dx1
+// dy > 0
 func bresenham_triangle(dy, dx0, dx1 int, line line_func) {
 
 	var x0, x1, err0, err1 int
+
+	if dx0 > dx1 {
+		// swap them
+		tmp := dx1
+		dx1 = dx0
+		dx0 = tmp
+	}
 
 	x0_inc := utils.Sgn(dx0)
 	x1_inc := utils.Sgn(dx1)
@@ -34,7 +42,7 @@ func bresenham_triangle(dy, dx0, dx1 int, line line_func) {
 	err_x0 := 2 * dx0
 	err_x1 := 2 * dx1
 
-	for y := 0; y < dy; y++ {
+	for y := 0; y <= dy; y++ {
 		line(x0, x1, y)
 		// line 0
 		err0 += err_x0
@@ -79,41 +87,56 @@ func triangle(a, b, c vec.V2i, img *image.NRGBA, color color.NRGBA) {
 
 	// bubble sort the vertices by y-order
 	p := [3]*vec.V2i{&a, &b, &c}
-	if p[0][1] > p[1][1] {
-		// swap p[0] with p[1]
-		x := p[1]
-		p[1] = p[0]
-		p[0] = x
-	}
-	if p[1][1] > p[2][1] {
-		// swap p[1] with p[2]
-		x := p[2]
-		p[2] = p[1]
-		p[1] = x
-	}
-	if p[0][1] > p[1][1] {
-		// swap p[0] with p[1]
-		x := p[1]
-		p[1] = p[0]
-		p[0] = x
-	}
+	vec.Sort_Y(p[0:2])
+	vec.Sort_Y(p[1:3])
+	vec.Sort_Y(p[0:2])
 
 	if p[0][1] == p[1][1] {
 		// flat bottom triangle
 		fmt.Printf("flat bottom: %+v %+v %+v\n", *p[0], *p[1], *p[2])
-		// TODO
+		dy := p[2][1] - p[0][1]
+		dx0 := p[0][0] - p[2][0]
+		dx1 := p[1][0] - p[2][0]
+		bresenham_triangle(dy, dx0, dx1, line_fb(*p[2], img, color))
 		return
 	}
 
 	if p[1][1] == p[2][1] {
 		// flat top triangle
 		fmt.Printf("flat top: %+v %+v %+v\n", *p[0], *p[1], *p[2])
-		// TODO
+		dy := p[1][1] - p[0][1]
+		dx0 := p[1][0] - p[0][0]
+		dx1 := p[2][0] - p[0][0]
+		bresenham_triangle(dy, dx0, dx1, line_ft(*p[0], img, color))
 		return
 	}
 
 	fmt.Printf("general: %+v %+v %+v\n", *p[0], *p[1], *p[2])
-	// TODO
+	// work out the x-coordinate of the unknown mid-point
+	k := p[0][0] + utils.Round(float32((p[1][1]-p[0][1])*(p[2][0]-p[0][0]))/float32(p[2][1]-p[0][1]))
+
+	fmt.Printf("K %d\n", k)
+
+	// flat bottom triangle
+	dy := p[2][1] - p[1][1]
+	dx0 := p[1][0] - p[2][0]
+	dx1 := k - p[2][0]
+	bresenham_triangle(dy, dx0, dx1, line_fb(*p[2], img, color))
+
+	// flat top triangle
+	dy = p[1][1] - p[0][1]
+	dx0 = p[1][0] - p[0][0]
+	dx1 = k - p[0][0]
+	bresenham_triangle(dy, dx0, dx1, line_ft(*p[0], img, color))
+}
+
+func Random_Color() color.NRGBA {
+	return color.NRGBA{
+		uint8(256 * rand.Float32()),
+		uint8(256 * rand.Float32()),
+		uint8(256 * rand.Float32()),
+		255, //uint8(256 * rand.Float32()),
+	}
 }
 
 func main() {
@@ -122,40 +145,22 @@ func main() {
 
 	white := color.NRGBA{255, 255, 255, 255}
 	black := color.NRGBA{0, 0, 0, 255}
-	img := imaging.New(800, 1000, black)
+	//k := vec.V2i{1000, 1000}
+	k := vec.V2i{50, 10}
+	img := imaging.New(k[0], k[1], black)
 
-	// collinear
-	triangle(vec.V2i{10, 20}, vec.V2i{10, 20}, vec.V2i{10, 20}, img, white)
-	triangle(vec.V2i{10, -30}, vec.V2i{10, 20}, vec.V2i{10, -10}, img, white)
-	triangle(vec.V2i{-10, -30}, vec.V2i{50, -30}, vec.V2i{-17, -30}, img, white)
-	triangle(vec.V2i{0, 30}, vec.V2i{0, 30}, vec.V2i{10, 20}, img, white)
-	triangle(vec.V2i{0, 30}, vec.V2i{0, 20}, vec.V2i{0, 10}, img, white)
-	triangle(vec.V2i{10, 20}, vec.V2i{20, 40}, vec.V2i{30, 60}, img, white)
-	triangle(vec.V2i{-10, -20}, vec.V2i{20, 40}, vec.V2i{13, 26}, img, white)
+	// 		for i := 0; i < 200; i++ {
+	//
+	// 			a := k.Rand()
+	// 			b := a.Rand_Delta(200)
+	// 			c := a.Rand_Delta(200)
+	//
+	// 			triangle(a, b, c, img, Random_Color())
+	// 		}
 
-	// flat bottom
-	triangle(vec.V2i{10, 30}, vec.V2i{20, 30}, vec.V2i{100, 200}, img, white)
+	triangle(vec.V2i{32, 0}, vec.V2i{0, 0}, vec.V2i{39, 4}, img, white)
 
-	// flat top
-	triangle(vec.V2i{10, 30}, vec.V2i{20, 30}, vec.V2i{0, 0}, img, white)
-
-	// general
-	triangle(vec.V2i{10, 20}, vec.V2i{20, 40}, vec.V2i{30, 61}, img, white)
-
-	bresenham_triangle(95, -395, -200, line_ft(vec.V2i{400, 0}, img, white))
-	bresenham_triangle(95, 200, 395, line_ft(vec.V2i{400, 100}, img, white))
-
-	bresenham_triangle(95, -300, -80, line_ft(vec.V2i{400, 200}, img, white))
-	bresenham_triangle(95, 80, 300, line_ft(vec.V2i{400, 300}, img, white))
-
-	bresenham_triangle(95, -73, 0, line_ft(vec.V2i{400, 400}, img, white))
-	bresenham_triangle(95, 0, 73, line_ft(vec.V2i{400, 500}, img, white))
-
-	bresenham_triangle(95, -300, 200, line_ft(vec.V2i{400, 600}, img, white))
-	bresenham_triangle(95, -200, 300, line_ft(vec.V2i{400, 700}, img, white))
-
-	bresenham_triangle(95, -80, 71, line_ft(vec.V2i{400, 800}, img, white))
-	bresenham_triangle(95, -71, 81, line_ft(vec.V2i{400, 900}, img, white))
+	//	triangle(vec.V2i{39, 0}, vec.V2i{44, 3}, vec.V2i{0, 4}, img, white)
 
 	img = imaging.FlipV(img)
 	err := imaging.Save(img, imgfile)
