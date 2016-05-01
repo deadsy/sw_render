@@ -9,6 +9,7 @@ import (
 
 	"github.com/deadsy/sw_render/utils"
 	"github.com/deadsy/sw_render/vec"
+	"github.com/deadsy/sw_render/wavefront"
 	"github.com/disintegration/imaging"
 )
 
@@ -139,31 +140,74 @@ func Random_Color() color.NRGBA {
 	}
 }
 
+func random_triangles(k vec.V2i, img *image.NRGBA) {
+	for i := 0; i < 200; i++ {
+		a := k.Rand()
+		b := a.Rand_Delta(100)
+		c := a.Rand_Delta(100)
+		triangle(a, b, c, img, Random_Color())
+	}
+}
+
+const pixels_x = 750
+const pixels_ofs = 5
+
+// object to image mapping
+func Obj2Img(v, ofs vec.V3f, scale float32) vec.V2i {
+	p := v.Sum(ofs).Scale(scale)
+	return vec.V2i{int(p[0]), int(p[1])}
+}
+
 func main() {
 
 	imgfile := "output.png"
+	objfile := "../obj/african_head.obj"
 
-	white := color.NRGBA{255, 255, 255, 255}
+	obj, err := wavefront.Read(objfile)
+	if err != nil {
+		fmt.Printf("%s: %s\n", objfile, err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("%s\n", obj)
+
+	obj_ofs := obj.Offset()
+	fmt.Printf("obj_ofs: %+v\n", obj_ofs)
+
+	obj_range := obj.Range()
+	fmt.Printf("obj_range: %+v\n", obj_range)
+
+	// we want the image to be pixels_x wide on the x-axis
+	// work out the scaling factor
+	scale := (pixels_x - pixels_ofs) / obj_range[0]
+
+	// work out the image size
+	img_size := obj_range.Scale(scale)
+	img_size = img_size.Sum(vec.V3f{pixels_ofs, pixels_ofs, pixels_ofs})
+	fmt.Printf("img_size: %+v\n", img_size)
+
 	black := color.NRGBA{0, 0, 0, 255}
-	//k := vec.V2i{1000, 1000}
-	k := vec.V2i{50, 10}
-	img := imaging.New(k[0], k[1], black)
+	img := imaging.New(int(img_size[0]), int(img_size[1]), black)
 
-	// 		for i := 0; i < 200; i++ {
-	//
-	// 			a := k.Rand()
-	// 			b := a.Rand_Delta(200)
-	// 			c := a.Rand_Delta(200)
-	//
-	// 			triangle(a, b, c, img, Random_Color())
-	// 		}
+	// iterate over the object faces
+	for i := 0; i < obj.Len_F(); i++ {
 
-	triangle(vec.V2i{32, 0}, vec.V2i{0, 0}, vec.V2i{39, 4}, img, white)
+		// get the vertices from the face
+		v0 := obj.Get_V(i, 0).ToV3()
+		v1 := obj.Get_V(i, 1).ToV3()
+		v2 := obj.Get_V(i, 2).ToV3()
 
-	//	triangle(vec.V2i{39, 0}, vec.V2i{44, 3}, vec.V2i{0, 4}, img, white)
+		p0 := Obj2Img(v0, obj_ofs, scale)
+		p1 := Obj2Img(v1, obj_ofs, scale)
+		p2 := Obj2Img(v2, obj_ofs, scale)
+
+		triangle(p0, p1, p2, img, Random_Color())
+	}
+
+	//random_triangles(k, img)
 
 	img = imaging.FlipV(img)
-	err := imaging.Save(img, imgfile)
+	err = imaging.Save(img, imgfile)
 	if err != nil {
 		fmt.Printf("unable to save %s, %s\n", imgfile, err)
 		os.Exit(1)
