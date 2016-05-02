@@ -48,6 +48,26 @@ suppose this is because the head has been created with triangles that are more w
 
 ![lesson2_image4](https://github.com/deadsy/sw_render/blob/master/lesson2/pics/4.png "lesson2_image4")
 
+Random thoughts on triangle rendering:
+
+With the Bresenham style rendering I am doing I end up with (by design) a pixels at each vertex.
+Clearly a triangle could be so small that it doesn't even deserve a single pixel to represent it.
+
+Another idea: Bounding box, followed by scanning the horizontal pixels. If the pixel centroid is
+within the triangle then turn it on. This should be a contiguous region- albeit still problematic
+for long thin triangles, where two triangles of similar shape might have very different renderings.
+
+This time with random coloring of the triangles with normals facing forwards.
+
+![lesson2_image5](https://github.com/deadsy/sw_render/blob/master/lesson2/pics/5.png "lesson2_image5")
+
+And with grey scale shading based on the dot product of the light and the face normal vector.
+
+![lesson2_image6](https://github.com/deadsy/sw_render/blob/master/lesson2/pics/6.png "lesson2_image6")
+
+Flashlight under the chin...
+
+![lesson2_image7](https://github.com/deadsy/sw_render/blob/master/lesson2/pics/7.png "lesson2_image7")
 
 
 

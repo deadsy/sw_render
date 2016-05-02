@@ -136,7 +136,16 @@ func Random_Color() color.NRGBA {
 		uint8(256 * rand.Float32()),
 		uint8(256 * rand.Float32()),
 		uint8(256 * rand.Float32()),
-		255, //uint8(256 * rand.Float32()),
+		255,
+	}
+}
+
+func Grey_Scale(level float32) color.NRGBA {
+	return color.NRGBA{
+		uint8(255 * level),
+		uint8(255 * level),
+		uint8(255 * level),
+		255,
 	}
 }
 
@@ -188,6 +197,7 @@ func main() {
 
 	black := color.NRGBA{0, 0, 0, 255}
 	img := imaging.New(int(img_size[0]), int(img_size[1]), black)
+	light := vec.V3f{0, 1, -1}.Normalize()
 
 	// iterate over the object faces
 	for i := 0; i < obj.Len_F(); i++ {
@@ -197,11 +207,16 @@ func main() {
 		v1 := obj.Get_V(i, 1).ToV3()
 		v2 := obj.Get_V(i, 2).ToV3()
 
-		p0 := Obj2Img(v0, obj_ofs, scale)
-		p1 := Obj2Img(v1, obj_ofs, scale)
-		p2 := Obj2Img(v2, obj_ofs, scale)
+		normal := v2.Sub(v0).Cross(v1.Sub(v0)).Normalize()
+		shading := light.Dot(normal)
 
-		triangle(p0, p1, p2, img, Random_Color())
+		if shading > 0 {
+			p0 := Obj2Img(v0, obj_ofs, scale)
+			p1 := Obj2Img(v1, obj_ofs, scale)
+			p2 := Obj2Img(v2, obj_ofs, scale)
+			triangle(p0, p1, p2, img, Grey_Scale(shading))
+		}
+
 	}
 
 	//random_triangles(k, img)
